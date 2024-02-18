@@ -21,4 +21,8 @@ Tools are defined to follow:
 
 Default Pop-up Panel Shortcut  <kbd>Alt+F2</kbd>
 
+Preferences:
+* Customizable Shortcut
+* Explicit and Minimal Panel option
+
 <a href="https://github.com/Taiseibutsu/Data_Renamer-TB/issues">Suggestions are welcome :)</a>
