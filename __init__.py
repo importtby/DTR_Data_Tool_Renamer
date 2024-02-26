@@ -2,20 +2,15 @@
 # This program is free software: you can redistribute it and/or modify it, WITHOUT ANY WARRANTY that wont wake up on the backrooms. --- Kreepyrights is just a joke, this is license under GNU General Public License (GPL, or “free software”), but just with a strange name to reference, or maybe not...
 
 bl_info = {
-    "name": "Data_Tool_Renamer(TB)",
-    "author": "Taiseibutsu",
-    "version": (0, 0, 1),
-    "blender": (2, 80, 0),
-    "location": "3D View, N Panel",
+    "name": "Data_Tool_Renamer (DTR)", "author": "TBY",
+    "version": (0, 0, 2), "blender": (4, 2, 0), "location": "3D View, N Panel",
     "description": "Custom tools for assigning names between object name and data-blocks",
-    "warning": "",
-    "wiki_url": "",
-    "category": "TB",
-}
+    "wiki_url": "", "category": "TBY"}
+
 import bpy, addon_utils, os, rna_keymap_ui
 from bpy.types import AddonPreferences, Panel
 
-class TB_E_Properties(bpy.types.PropertyGroup):
+class TBY_DTR_Properties(bpy.types.PropertyGroup):
     nametorename : bpy.props.StringProperty(default = "Enter Name", description = "Name that will be assigned to active object")
     renamerfrom : bpy.props.EnumProperty(
         name = "Enumerator/Dropdown",
@@ -46,21 +41,25 @@ class TB_E_Properties(bpy.types.PropertyGroup):
     renamertoaction : bpy.props.BoolProperty(default = False, description = "Transfer Name to Animation")
     renamertomaterial : bpy.props.BoolProperty(default = False, description = "Transfer Name to Material")
 
-    expand_menus : bpy.props.BoolProperty(default = False, description = "Collapse/Expanse readability of the panel")
+    tby_collapse_panel : bpy.props.BoolProperty(default = True, description = "Collapse/Expanse readability of the panel")
+    tby_show_active_name : bpy.props.BoolProperty(default = True, description = "Show object, mesh, material and action name on panel")
 
 def setrenamename(ob,renamename):
-    tbtool = bpy.context.scene.tb_data_tool
+    tbtool = bpy.context.scene.tby_data_tool
     if tbtool.renamerfrom !='OBJECT' and tbtool.renamertoobject:
         ob.name = renamename
     if tbtool.renamerfrom !='DATABLOCK' and tbtool.renamertodatablock:
         ob.data.name = renamename
-    if tbtool.renamerfrom !='ACTION' and tbtool.renamertoaction and ob.animation_data != None:   
+    if tbtool.renamerfrom !='ACTION' and tbtool.renamertoaction:
+        #if ob.animation_data != None:   
+            #bpy.data.actions.new(renamename)
+        #else:
         ob.animation_data.action.name = renamename
     if tbtool.renamerfrom !='MATERIAL' and tbtool.renamertomaterial and ob.active_material != None:
         ob.active_material.name = renamename
       
 def renamerename(ob):
-    tbtool = bpy.context.scene.tb_data_tool
+    tbtool = bpy.context.scene.tby_data_tool
     if tbtool.renamerfrom =='OBJECT':
         renamename = ob.name
         setrenamename(ob,renamename)
@@ -78,15 +77,15 @@ def renamerename(ob):
             renamename = ob.active_material.name
             setrenamename(ob,renamename)        
 
-class TB_RENAMER(bpy.types.Operator):
-    bl_idname = "tb_ops.renamercut"
+class TBY_RENAMER(bpy.types.Operator):
+    bl_idname = "tby_ops.renamercut"
     bl_label = "Renames data"
     bl_description = "Rename Data"
     
     def execute(self, context):
         acobj = bpy.context.active_object
         acobjt = acobj.type
-        tbtool = context.scene.tb_data_tool
+        tbtool = context.scene.tby_data_tool
 
         if tbtool.renamermode =='SELECTION':  
             for ob in bpy.context.selected_objects:
@@ -113,12 +112,22 @@ class TB_RENAMER(bpy.types.Operator):
         return {"FINISHED"}
 
 
-
 def tbdatarenamer(self, context):
     acobj = bpy.context.active_object
     acobjt = acobj.type
     if acobjt != 'EMPTY':
-        tbtool = context.scene.tb_data_tool
+        tbtool = context.scene.tby_data_tool
+        
+        layout = self.layout
+        box = layout.box()
+        row = box.row(align=True)
+        if tbtool.tby_collapse_panel:
+            row.prop(tbtool,"tby_collapse_panel",text="Collapse Panel",icon='FULLSCREEN_EXIT')
+        else:
+            row.prop(tbtool,"tby_collapse_panel",text="Expand Panel",icon='FULLSCREEN_ENTER')
+        row.separator()
+        row.prop(tbtool,"tby_show_active_name", text="Linked Names", icon='SYNTAX_OFF')
+
         if acobjt != 'GPENCIL' and acobjt != 'LIGHT_PROBE' and acobjt != 'SPEAKER':
             datablockicon = bpy.context.active_object.type + '_DATA'
         elif acobjt == 'GPENCIL':
@@ -127,32 +136,29 @@ def tbdatarenamer(self, context):
             datablockicon = 'OUTLINER_DATA_LIGHTPROBE'
         elif acobjt == 'SPEAKER':
             datablockicon = 'SPEAKER'
-        layout = self.layout
-        row = layout.row(align=True)
-        row.template_ID(context.view_layer.objects, "active", filter='AVAILABLE')
-        if tbtool.renamertodatablock:
-            row.template_ID(context.view_layer.objects.active, "data")
-        if tbtool.renamerfrom =='ACTION' or tbtool.renamerfrom =='MATERIAL' or tbtool.renamertomaterial and acobjt in ['MESH','META','HAIR','CURVE','POINTCLOUD','SURFACE','GPENCIL','VOLUME'] or tbtool.renamertoaction:
-            row = layout.row(align=True)
-        if tbtool.renamerfrom =='MATERIAL' or tbtool.renamertomaterial and acobjt in ['MESH','META','HAIR','CURVE','POINTCLOUD','SURFACE','GPENCIL','VOLUME']:
-            row.template_ID(acobj, "active_material", new="material.new")
-        if (tbtool.renamerfrom =='ACTION' or tbtool.renamertoaction) and (tbtool.renamerfrom =='MATERIAL' or tbtool.renamertomaterial and acobjt in ['MESH','META','HAIR','CURVE','POINTCLOUD','SURFACE','GPENCIL','VOLUME']):
-            row.separator()
-        if tbtool.renamertoaction or tbtool.renamerfrom =='ACTION':
-            st = context.space_data          
-            #layout.template_ID(st, "action", new="action.new", unlink="action.unlink")
-            if acobj.animation_data != None:
+        
+
+        if tbtool.tby_show_active_name:
+            box = layout.box()
+            row = box.row(align=True)
+            row.template_ID(context.view_layer.objects, "active", filter='AVAILABLE')
+            if tbtool.renamertodatablock:
+                row.template_ID(context.view_layer.objects.active, "data")
+            if tbtool.renamerfrom =='ACTION' or tbtool.renamerfrom =='MATERIAL' or tbtool.renamertomaterial and acobjt in ['MESH','META','HAIR','CURVE','POINTCLOUD','SURFACE','GPENCIL','VOLUME'] or tbtool.renamertoaction:
+                row = box.row(align=True)
+            if tbtool.renamerfrom =='MATERIAL' or tbtool.renamertomaterial and acobjt in ['MESH','META','HAIR','CURVE','POINTCLOUD','SURFACE','GPENCIL','VOLUME']:
+                row.template_ID(acobj, "active_material", new="material.new")
+            if (tbtool.renamerfrom =='ACTION' or tbtool.renamertoaction) and (tbtool.renamerfrom =='MATERIAL' or tbtool.renamertomaterial and acobjt in ['MESH','META','HAIR','CURVE','POINTCLOUD','SURFACE','GPENCIL','VOLUME']):
+                row.separator()
+            if tbtool.renamertoaction or tbtool.renamerfrom =='ACTION':        
+                #layout.template_ID(st, "action", new="action.new", unlink="action.unlink")
                 if acobj.animation_data.action != None:
                     row.prop(acobj.animation_data.action, "name" , text="",icon='ACTION')
                 else:
                     row.label(text="No Active Action",icon='ACTION')
-            else:
-                row.label(text="No Active Action",icon='ACTION')
-                #row.operator("action.new",(acobj))
-
 
         box = layout.box()
-        if tbtool.expand_menus:
+        if tbtool.tby_collapse_panel:
             row = box.row(align=True)
             row.label(text="Rename From")
         else:
@@ -161,7 +167,7 @@ def tbdatarenamer(self, context):
             row.prop(tbtool, "renamerfrom",text="",icon=datablockicon)
         else:
             row.prop(tbtool, "renamerfrom",text="")
-        if tbtool.expand_menus:
+        if tbtool.tby_collapse_panel:
             row = box.row(align=True)
             row.label(text="To")
             texticonob = "Object"
@@ -183,7 +189,7 @@ def tbdatarenamer(self, context):
         if acobj.type in {'MESH','SURFACE','CURVE','FONT','META','GPENCIL'}:
             if tbtool.renamerfrom != 'MATERIAL':
                 row.prop(tbtool, "renamertomaterial",text=texticonmat,icon='MATERIAL')
-        if tbtool.expand_menus:
+        if tbtool.tby_collapse_panel:
             row = box.row(align=True)
             row.label(text="Rename for")
         else:
@@ -206,10 +212,10 @@ def tbdatarenamer(self, context):
         else:
             icononlyrename = False
         row.prop(tbtool, "renamermode",text="",icon_only=icononlyrename)
-        if tbtool.expand_menus:
+        if tbtool.tby_collapse_panel:
             box = layout.box()
         row = box.row(align=True)
-        row.operator("tb_ops.renamercut",text="Rename",icon='SORTALPHA')
+        row.operator("tby_ops.renamercut",text="Rename",icon='SORTALPHA')
 
     else:
         layout = self.layout
@@ -221,26 +227,26 @@ def tbdatarenamer(self, context):
             row = layout.row(align=True)
             row.template_ID(acobj, "data", open="image.open", unlink="object.unlink_data")
 
-class TB_DATA_TOOLS_PNL(bpy.types.Panel):
+class tby_data_toolS_PNL(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "TB"
     bl_label = ""
-    bl_idname = "TB_PNL_Data_Tools"
+    bl_idname = "TBY_PNL_Data_Tools"
     @classmethod
     def poll(cls, context):
         return context.object is not None
     def draw_header(self,context):
-        tbtool = context.scene.tb_data_tool
+        tbtool = context.scene.tby_data_tool
         layout = self.layout
         layout.label(icon='FILE_TEXT')
         layout.label(text="Data_Tool_Renamer")
     def draw (self,context):
         tbdatarenamer(self, context)
 
-class TB_DATA_TOOLS_PNL_POP(bpy.types.Operator):
+class tby_data_toolS_PNL_POP(bpy.types.Operator):
     """Tooltip"""
-    bl_idname = "context.tbdatarenamerpopup"
+    bl_idname = "tbycontext.tbdatarenamerpopup"
     bl_label = "Data Renamer"
     @classmethod
     def poll(cls, context):
@@ -253,51 +259,50 @@ class TB_DATA_TOOLS_PNL_POP(bpy.types.Operator):
     def execute(self, context):
         return {'FINISHED'}
 
-class TB_Datarenamer_PreferencesPanel(AddonPreferences):
+class TBY_Datarenamer_PreferencesPanel(AddonPreferences):
     bl_idname = __name__
     def draw(self, context):
         layout = self.layout
         box=layout.box()
-        tbtool = context.scene.tb_data_tool
-        if tbtool.expand_menus:
-            box.prop(tbtool,"expand_menus",text="Collapse Panel",icon='FULLSCREEN_EXIT')
+        tbtool = context.scene.tby_data_tool
+        if tbtool.tby_collapse_panel:
+            box.prop(tbtool,"tby_collapse_panel",text="Collapse Panel",icon='FULLSCREEN_EXIT')
         else:
-            box.prop(tbtool,"expand_menus",text="Expand Panel",icon='FULLSCREEN_ENTER')
-        box=layout.box()
-        box.label(text="Hotkey:")
-        col = box.column()
-        kc = bpy.context.window_manager.keyconfigs.addon
-        for km, kmi in addon_keymaps:
-            km = km.active()
-            col.context_pointer_set("keymap", km)
-            rna_keymap_ui.draw_kmi([], kc, km, kmi, col, 0)
-        row = layout.row()
-        col = row.column()
-        col.prop(self, "TBOVER", text="")
+            box.prop(tbtool,"tby_collapse_panel",text="Expand Panel",icon='FULLSCREEN_ENTER')
+            box=layout.box()
+            box.label(text="Hotkey:")
+            col = box.column()
+            kc = bpy.context.window_manager.keyconfigs.addon
+            for km, kmi in addon_keymaps:
+                km = km.active()
+                col.context_pointer_set("keymap", km)
+                rna_keymap_ui.draw_kmi([], kc, km, kmi, col, 0)
+            row = layout.row()
+            col = row.column()
+            col.prop(self, "TBOVER", text="")
 
 
 classes = (
-    TB_E_Properties,
-    TB_DATA_TOOLS_PNL,
-    TB_DATA_TOOLS_PNL_POP,
-    TB_Datarenamer_PreferencesPanel,
-    TB_RENAMER,
+    TBY_DTR_Properties,
+    tby_data_toolS_PNL,
+    tby_data_toolS_PNL_POP,
+    TBY_Datarenamer_PreferencesPanel,
+    TBY_RENAMER,
     )
 addon_keymaps = []         
-
 
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-        bpy.types.Scene.tb_data_tool = bpy.props.PointerProperty(type= TB_E_Properties)
+        bpy.types.Scene.tby_data_tool = bpy.props.PointerProperty(type= TBY_DTR_Properties)
  #KEYMAP
     wm = bpy.context.window_manager
     kc = wm.keyconfigs.addon
     if kc:
      #VIEW3D        
         km = kc.keymaps.new(name='3D View', space_type='VIEW_3D')
-        kmi = km.keymap_items.new("context.tbdatarenamerpopup", 'F2', 'PRESS', alt=True, ctrl=False, shift=False)
+        kmi = km.keymap_items.new("tbycontext.tbdatarenamerpopup", 'F2', 'PRESS', alt=True, ctrl=False, shift=False)
         kmi.active = True
         addon_keymaps.append((km, kmi))
 
@@ -306,7 +311,7 @@ def unregister():
  #CLASSES
     for cls in classes:
         bpy.utils.unregister_class(cls)
-        bpy.types.Scene.tb_data_tool
+        bpy.types.Scene.tby_data_tool
  #KEYMAP
     for km, kmi in addon_keymaps:
         km.keymap_items.remove(kmi)
